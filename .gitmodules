@@ -1,0 +1,3 @@
+[submodule "c-simple_lexer"]
+	path = c-simple_lexer
+	url = git://github.com/jbussdieker/c-simple_lexer.git
