@@ -23,6 +23,39 @@ int word_matcher(char *p, char *fv, int case_sensitive) {
     return 0;
 }
 
+int substring_matcher(char *p, char *fv, int case_sensitive) {
+    int read, size, offset = 0;
+    const char *match;
+
+    while (read = enum_fields(fv + offset, &match, &size)) {
+	if (strlen(p) <= size) {
+	    const char *s;
+	    for (s = match; s <= match + size - strlen(p); s++) {
+		if (cmp_func(s, p, strlen(p), case_sensitive) == 0) {
+		    return 1;
+		}
+	    }
+	}
+	offset += read;
+    }
+    return 0;
+}
+
+int beginning_substring_matcher(char *p, char *fv, int case_sensitive) {
+    int read, size, offset = 0;
+    const char *match;
+
+    while (read = enum_fields(fv + offset, &match, &size)) {
+	if (strlen(p) <= size) {
+	    if (cmp_func(match, p, strlen(p), case_sensitive) == 0) {
+		return 1;
+	    }
+	}
+	offset += read;
+    }
+    return 0;
+}
+
 #ifdef TESTS
 int fancy = 0;
 
@@ -34,9 +67,17 @@ void print_literal(const char *msg) {
     printf("\033[1;31m%s\033[00m", msg);
 }
 
-int run_test(char *p, char *fv, int case_sensitive, int expect) {
+int run_test(int (*functionPtr)(char *, char *, int), char *p, char *fv, int case_sensitive, int expect) {
     if (fancy)
 	printf("[....] ");
+
+    if (functionPtr == &word_matcher) {
+	printf("(word_matcher): ");
+    } else if (functionPtr == &substring_matcher) {
+	printf("(substring_matcher): ");
+    } else if (functionPtr == &beginning_substring_matcher) {
+	printf("(beginning_substring_matcher): ");
+    }
 
     printf("Testing that ");
     print_special("\"");
@@ -52,7 +93,7 @@ int run_test(char *p, char *fv, int case_sensitive, int expect) {
     else
 	printf("\n");
 
-    if (word_matcher(p, fv, case_sensitive) != expect) {
+    if (functionPtr(p, fv, case_sensitive) != expect) {
 	printf("[\033[0;31mFAIL\033[00m]\n");
 	return 1;
     } else {
@@ -66,13 +107,23 @@ int main(int argc, char **argv) {
 
     fancy = argc == 2 ? 0 : 1;
 
-    result |= run_test("foo", "foo", 0, 1);
-    result |= run_test("foo", "Foo", 0, 1);
-    result |= run_test("foo", "Foo", 1, 0);
-    result |= run_test("foo", "foo,bar", 0, 1);
-    result |= run_test("foo", "bar,foo,bar", 0, 1);
-    result |= run_test("foo", "foobar", 0, 0);
-    result |= run_test("\"foo,bar\"", "bar,\"foo,bar\",bar", 0, 1);
+    result |= run_test(&word_matcher, "foo", "foo", 0, 1);
+    result |= run_test(&word_matcher, "foo", "Foo", 0, 1);
+    result |= run_test(&word_matcher, "foo", "Foo", 1, 0);
+    result |= run_test(&word_matcher, "foo", "foo,bar", 0, 1);
+    result |= run_test(&word_matcher, "foo", "bar,foo,bar", 0, 1);
+    result |= run_test(&word_matcher, "foo", "foobar", 0, 0);
+    result |= run_test(&word_matcher, "\"foo,bar\"", "bar,\"foo,bar\",bar", 0, 1);
+
+    result |= run_test(&substring_matcher, "foobar", "foobar", 0, 1);
+    result |= run_test(&substring_matcher, "foo", "foobar", 0, 1);
+    result |= run_test(&substring_matcher, "ooba", "foobar", 0, 1);
+    result |= run_test(&substring_matcher, "bar", "foobar", 0, 1);
+
+    result |= run_test(&beginning_substring_matcher, "foobar", "foobar", 0, 1);
+    result |= run_test(&beginning_substring_matcher, "foo", "foobar", 0, 1);
+    result |= run_test(&beginning_substring_matcher, "ooba", "foobar", 0, 0);
+    result |= run_test(&beginning_substring_matcher, "bar", "foobar", 0, 0);
 
     return result;
 }
